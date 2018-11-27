@@ -26,29 +26,36 @@ def http_socket(client, addr):
             for s in readable:
                 if s is client:
                     #读取 http 请求头信息
-                    request_header = s.recv(HEADER_SIZE)
+                    data = s.recv(HEADER_SIZE)
                     if remote_socket is 0:
                         #拆分头信息
-                        host_addr = request_header.split("\r\n")[1].split(":")
-                        #如果未指定端口则为默认 80
-                        if 2 == len(host_addr):
-                            host_addr.append("80")
-                        name, host, port = map(lambda x: x.strip(), host_addr)
-                        #建立 socket tcp 连接
+                        host_url  = data.split("\r\n")[0].split(" ")
+                        method, host_addr, protocol = map(lambda x: x.strip(), host_url)
+                        #如果 CONNECT 代理方式
+                        if method == "CONNECT":
+                            host, port = host_addr.split(":")
+                        else:
+                            host_addr = data.split("\r\n")[1].split(":")
+                            #如果未指定端口则为默认 80
+                            if 2 == len(host_addr):
+                                host_addr.append("80")
+                            name, host, port = map(lambda x: x.strip(), host_addr)
+                            #建立 socket tcp 连接
                         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         sock.connect((host, int(port)))
                         remote_socket = sock
                         inputs.append(sock)
+                        if method == "CONNECT":
+                            start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
+                            s.sendall("HTTP/1.1 200 Connection Established\r\nFiddlerGateway: Direct\r\nStartTime: {0}\r\nConnection: close\r\n\r\n".format(start_time))
+                            continue
                     #发送原始请求头
-                    remote_socket.sendall(request_header)
+                    remote_socket.sendall(data)
                 else:
                     #接收数据并发送给浏览器
-                    while(True):
-                        resp = s.recv(512)
-                        if resp:
-                            client.sendall(resp)
-                    else:
-                        break
+                    resp = s.recv(HEADER_SIZE)
+                    if resp:
+                        client.sendall(resp)
         except Exception as e:
             print("http socket error {0}".format(e))
 
@@ -56,8 +63,8 @@ def http_socket(client, addr):
 http_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 try:
     http_server.bind((host, port))
-except:
-    sys.exit("python proxy bind error ")
+except Exception as e:
+    sys.exit("python proxy bind error {0}".format(e))
 
 print("python proxy start")
 
