@@ -32,7 +32,7 @@ def patched_create_connection(address, *args, **kwargs):
 	hostname = ip_list[ip_index]
 	ip_index += 1
 	
-	print(hostname)
+	print("try connect ip:{}".format(hostname))
 	return _orig_create_connection((hostname, port), *args, **kwargs)
 
 def parse_ip_file(file):
@@ -49,10 +49,16 @@ def https_detector(url, parse_file):
 	ip_list = parse_ip_file(parse_file)
 
 	for i in range(0, len(ip_list)):
-		connection.create_connection = patched_create_connection
-		conn = connectionpool.connection_from_url(url)
-		resp = conn.request('GET', url)
-		print(resp.data)
+		try:
+			connection.create_connection = patched_create_connection
+			conn = connectionpool.connection_from_url(url)
+			resp = conn.request('GET', url)
+			if resp.data:
+				print("{} {}".format(ip_list[ip_index]-1), url)
+				input('press any key to exit')
+				sys.exit(0)
+		except:
+			pass
 
 """
 run https_detector
